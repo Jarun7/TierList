@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Mode Defaults (Minimal update for now) */
+  --background-light: #F0F0F5;
+  --foreground-light: #202030;
+  --primary-accent-light: #A070F0; /* Purple */
+  --secondary-accent-light: #FF8040; /* Orange */
+  --border-color-light: #D0D0E0;
+  --element-bg-light: #FFFFFF;
+
+  /* Dark Mode Defaults (Primary focus based on image) */
+  --background-dark: #101018; /* Very Dark Blue/Gray */
+  --foreground-dark: #D0D0E0; /* Lighter Gray */
+  --primary-accent-dark: #A070F0; /* Vibrant Purple */
+  --secondary-accent-dark: #FF8040; /* Vibrant Orange */
+  --border-color-dark: #2A2A3A; /* Subtle Border */
+  --element-bg-dark: #1A1A28; /* Slightly Lighter Element BG */
+
+  /* Font variables (keeping Geist for now) */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans); /* Ensure these use the root vars */
+  --font-mono: var(--font-mono); /* Ensure these use the root vars */
+}
+
+/* Apply the theme variables */
+:root {
+  --background: var(--background-light);
+  --foreground: var(--foreground-light);
+  --primary-accent: var(--primary-accent-light);
+  --secondary-accent: var(--secondary-accent-light);
+  --border-color: var(--border-color-light);
+  --element-bg: var(--element-bg-light);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: var(--background-dark);
+    --foreground: var(--foreground-dark);
+    --primary-accent: var(--primary-accent-dark);
+    --secondary-accent: var(--secondary-accent-dark);
+    --border-color: var(--border-color-dark);
+    --element-bg: var(--element-bg-dark);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

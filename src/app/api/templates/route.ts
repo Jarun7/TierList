@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newTemplate, { status: 201 }); // 201 Created status
 
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Handle potential JSON parsing errors or other errors
     if (e instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid request body: Failed to parse JSON.' }, { status: 400 });

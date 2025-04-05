@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server'; // Use server client for RSC
-import { Database } from '@/types/database.types';
 import { cookies } from 'next/headers'; // Needed for server client
 
 // Define the type based on the API response for listing
@@ -15,7 +14,7 @@ type PublicTierList = {
 
 // Fetch public tier lists on the server
 async function getPublicTierLists(): Promise<PublicTierList[]> {
-  const cookieStore = cookies();
+  // const cookieStore = cookies(); // Removed as it's unused
   const supabase = createClient(); // Call with 0 args
 
   // Fetch public lists, potentially joining with templates for name display

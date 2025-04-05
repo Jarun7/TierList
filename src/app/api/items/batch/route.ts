@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     // If you need the created records, you'd have to fetch them separately or create them one by one (less efficient).
     return NextResponse.json({ message: `Successfully created ${result.count} items.`, count: result.count }, { status: 201 });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
      if (e instanceof SyntaxError) {
       return NextResponse.json({ error: 'Invalid request body: Failed to parse JSON.' }, { status: 400 });
     }

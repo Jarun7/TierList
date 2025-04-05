@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 // Use the server client creator that accepts the cookie store
 import { createClient } from '@/lib/supabase/server'

@@ -91,7 +91,7 @@ function DraggableItem({ id, imageUrl, name }: { id: string; imageUrl: string; n
       {...attributes}
       // Render an img tag instead of text content
       // Added object-cover to maintain aspect ratio
-      className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center cursor-grab touch-none overflow-hidden"
+      className="w-16 h-16 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg flex items-center justify-center cursor-grab touch-none overflow-hidden shadow-md hover:shadow-lg transition-shadow" /* Use element-bg, rounded-lg */
     >
       <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
     </div>
@@ -107,7 +107,7 @@ function DroppableContainer({ id, children, className }: { id: string; children:
   return (
     <div
       ref={setNodeRef}
-      className={`${className} ${isOver ? 'outline outline-2 outline-blue-500' : ''}`} // Highlight when dragging over
+      className={`${className} ${isOver ? 'outline outline-2 outline-[var(--primary-accent)]' : ''}`} // Use primary accent for highlight
     >
       {children}
     </div>
@@ -500,7 +500,7 @@ export default function Home() {
     }
   };
 
-  // Function to handle deleting a saved tier list
+  // Function to handle deleting a saved list
   const handleDeleteList = async () => {
     if (!selectedSavedListId || !session?.user) {
       toast.error('Please select a saved list to delete.');
@@ -508,9 +508,11 @@ export default function Home() {
     }
 
     // Optional: Add a confirmation dialog
-    if (!window.confirm('Are you sure you want to delete this saved list?')) {
+    if (!window.confirm('Are you sure you want to delete this saved list? This cannot be undone.')) {
       return;
     }
+
+    setIsLoadingList(true); // Reuse loading state or add a dedicated deleting state
 
     try {
       const response = await fetch(`/api/tier-lists/${selectedSavedListId}`, {
@@ -524,47 +526,68 @@ export default function Home() {
 
       toast.success('List deleted successfully!');
 
-      // Remove the list from the local state
+      // Remove the list from the state
       setSavedLists(prev => prev.filter(list => list.id !== selectedSavedListId));
       setSelectedSavedListId(''); // Reset selection
 
     } catch (error) {
       console.error('Failed to delete list:', error);
       toast.error(`Error deleting list: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoadingList(false); // Reuse loading state
     }
   };
 
-  // Function to toggle public status of a saved list
+  // Function to toggle public/private status of a saved list
   const handleToggleListPublic = async (listId: string, currentStatus: boolean) => {
-     if (!session?.user) return; // Should not happen if button is visible
+      if (!session?.user) return;
 
-     const newStatus = !currentStatus;
+      const newStatus = !currentStatus;
+      // Optimistic UI update (optional but improves perceived performance)
+      setSavedLists(prev =>
+          prev.map(list =>
+              list.id === listId ? { ...list, is_public: newStatus } : list
+          )
+      );
 
-     try {
-        const response = await fetch(`/api/tier-lists/${listId}`, {
-           method: 'PATCH', // Or PUT
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ is_public: newStatus }),
-        });
+      try {
+          const response = await fetch(`/api/tier-lists/${listId}`, {
+              method: 'PATCH', // Or PUT
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_public: newStatus }),
+          });
 
-        if (!response.ok) {
-           throw new Error(`Failed to update list status: ${await response.text()}`);
-        }
+          if (!response.ok) {
+              // Revert optimistic update on failure
+              setSavedLists(prev =>
+                  prev.map(list =>
+                      list.id === listId ? { ...list, is_public: currentStatus } : list
+                  )
+              );
+              throw new Error(`Failed to update list status: ${await response.text()}`);
+          }
 
-        const updatedList: SavedTierList = await response.json();
+          const updatedList: SavedTierList = await response.json();
 
-        // Update local state
-        setSavedLists(prev =>
-           prev.map(list =>
-              list.id === listId ? { ...list, is_public: updatedList.is_public } : list
-           )
-        );
-        toast.success(`List visibility updated to ${newStatus ? 'Public' : 'Private'}.`);
+          // Update state with confirmed data from server
+          setSavedLists(prev =>
+              prev.map(list =>
+                  list.id === updatedList.id ? updatedList : list
+              ).sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()) // Keep sorted
+          );
 
-     } catch (error) {
-        console.error('Failed to toggle list public status:', error);
-        toast.error(`Error updating list visibility: ${error instanceof Error ? error.message : String(error)}`);
-     }
+          toast.success(`List marked as ${newStatus ? 'public' : 'private'}.`);
+
+      } catch (error) {
+          console.error('Failed to toggle list public status:', error);
+          toast.error(`Error updating list: ${error instanceof Error ? error.message : String(error)}`);
+          // Ensure UI reverts if it wasn't already
+          setSavedLists(prev =>
+              prev.map(list =>
+                  list.id === listId ? { ...list, is_public: currentStatus } : list
+              )
+          );
+      }
   };
 
 
@@ -585,40 +608,49 @@ export default function Home() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveId(null); // Reset active item ID
+    setActiveId(null); // Clear active item ID
 
     if (over && active.id !== over.id) {
       const activeContainerId = findContainer(active.id as string);
-      const overContainerId = over.id as string; // 'over.id' is the container ID
+      const overContainerId = over.id as string; // Can be a tier ID or BANK_ID
 
       if (!activeContainerId || !overContainerId) {
-        console.warn("Could not find container for active or over element");
+        console.error("Could not find container for active or over element");
         return;
       }
 
       // Move item between containers
       setContainers((prevContainers) => {
         const newContainers = { ...prevContainers };
-        const activeItems = [...(newContainers[activeContainerId] || [])];
-        const overItems = [...(newContainers[overContainerId] || [])];
 
-        const activeIndex = activeItems.indexOf(active.id as string);
-        const overIndex = overItems.indexOf(over.id as string); // This might be -1 if dropping onto container itself
-
-        // Remove from active container
-        if (activeIndex !== -1) {
-          activeItems.splice(activeIndex, 1);
+        // Remove item from the source container
+        const sourceItems = newContainers[activeContainerId] ? [...newContainers[activeContainerId]] : [];
+        const itemIndex = sourceItems.findIndex(id => id === active.id);
+        if (itemIndex !== -1) {
+          sourceItems.splice(itemIndex, 1);
+          newContainers[activeContainerId] = sourceItems;
+        } else {
+          console.warn(`Item ${active.id} not found in source container ${activeContainerId}`);
+          // If not found in expected source, check all containers (less efficient but robust)
+          // This part might be removed if state management is reliable
+          for (const containerId in newContainers) {
+              const itemsInContainer = newContainers[containerId];
+              const idx = itemsInContainer.findIndex(id => id === active.id);
+              if (idx !== -1) {
+                  itemsInContainer.splice(idx, 1);
+                  newContainers[containerId] = itemsInContainer;
+                  console.log(`Found and removed item ${active.id} from unexpected container ${containerId}`);
+                  break; // Found it, stop searching
+              }
+          }
         }
 
-        // Add to over container
-        // If overIndex is -1, it means we dropped onto the container, not another item. Add to end.
-        // Otherwise, insert at the position of the item we dropped over.
-        const insertIndex = overIndex !== -1 ? overIndex : overItems.length;
-        overItems.splice(insertIndex, 0, active.id as string);
 
-
-        newContainers[activeContainerId] = activeItems;
-        newContainers[overContainerId] = overItems;
+        // Add item to the destination container
+        const destinationItems = newContainers[overContainerId] ? [...newContainers[overContainerId]] : [];
+        // Add to the end for simplicity, could add logic for specific drop position later
+        destinationItems.push(active.id as string);
+        newContainers[overContainerId] = destinationItems;
 
         return newContainers;
       });
@@ -627,35 +659,42 @@ export default function Home() {
 
   // Helper function to find which container an item is currently in
   const findContainer = (itemId: string): string | undefined => {
-    return Object.keys(containers).find(key => containers[key].includes(itemId));
+    for (const containerId in containers) {
+      if (containers[containerId].includes(itemId)) {
+        return containerId;
+      }
+    }
+    return undefined; // Should not happen if state is consistent
   };
 
-  // --- Render Logic ---
-  if (loadingSession) {
-    return <div className="flex justify-center items-center min-h-screen"><Spinner /></div>; // Show spinner while loading session
-  }
 
+  // --- Render ---
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col min-h-screen p-4 bg-gray-100 dark:bg-gray-900">
+      <div className="flex flex-col min-h-screen p-4 md:p-6 bg-[var(--background)] text-[var(--foreground)]">
         {/* Header */}
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-center text-gray-800 dark:text-gray-200">Tier List Maker</h1>
-          {/* Auth UI or User Info/Logout */}
-          <div className="mt-4 flex justify-center">
-            {session ? (
+        <header className="mb-6 pb-4 border-b border-[var(--border-color)]">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-[var(--primary-accent)]">YesTier</h1> {/* Changed title style */}
+            {/* Auth Button/Info */}
+            {loadingSession ? (
+              <Spinner />
+            ) : session ? (
               <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Logged in as {session.user.email}</span>
+                <span className="text-sm opacity-80">Logged in as {session.user.email}</span> {/* Adjusted style */}
                 <button
                   onClick={async () => {
                     await supabase.auth.signOut();
-                    // Session state update will be handled by onAuthStateChange
                   }}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-[var(--background)]"
                 >
                   Logout
                 </button>
-                 <Link href="/browse/templates" className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+                 {/* Link to Browse Templates */}
+                 <Link
+                    href="/browse/templates"
+                    className="px-3 py-1 bg-[var(--secondary-accent)] text-white rounded hover:opacity-80 text-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--secondary-accent)] focus:ring-offset-[var(--background)]"
+                    >
                     Browse Templates
                  </Link>
               </div>
@@ -667,73 +706,81 @@ export default function Home() {
 
         {/* Main Content */}
         <main className="flex flex-col flex-grow gap-6">
-          {/* Tier Rows */}
-          <section id="tier-rows" className="p-4 bg-white dark:bg-gray-800 rounded shadow">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Tiers</h2>
-            <div className="space-y-2">
-              {tiers.map((tier) => (
-                <DroppableContainer key={tier.id} id={tier.id} className="flex items-stretch border border-gray-300 dark:border-gray-600 rounded min-h-[80px]">
-                  {/* Tier Label */}
-                  <div className={`w-20 flex items-center justify-center text-white font-bold text-lg rounded-l ${tier.color}`}>
-                    {tier.label}
-                  </div>
-                  {/* Tier Items Container */}
-                  <div className="flex-grow p-2 bg-gray-50 dark:bg-gray-700 rounded-r">
-                    <div className="flex flex-wrap gap-2 min-h-[64px]">
-                      {/* Render items in the tier */}
+
+          {/* Container for Tier List and Image Bank */}
+          <div className="flex flex-col md:flex-row gap-6">
+
+            {/* Tier Rows Section (Takes more space) */}
+            <section id="tier-rows" className="flex-grow p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
+              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Tiers</h2> {/* Heading color */}
+              <div className="space-y-2">
+                {tiers.map((tier) => (
+                  <DroppableContainer key={tier.id} id={tier.id} className="flex items-stretch border border-[var(--border-color)] rounded-lg min-h-[80px] transition-all duration-150 overflow-hidden"> {/* Use rounded-lg */}
+                    {/* Tier Label - Use tier.color directly for now, could map later */}
+                    <div className={`w-24 flex items-center justify-center text-white font-bold text-xl ${tier.color}`}> {/* Removed rounded-l */}
+                      {tier.label}
+                    </div>
+                    {/* Tier Items Area */}
+                    <div className="flex-grow p-2 flex flex-wrap gap-2 bg-[var(--element-bg)]"> {/* Use element-bg */}
                       {(containers[tier.id] ?? []).map(itemId => {
                         const item = items.find(i => i.id === itemId);
                         return item ? <DraggableItem key={item.id} id={item.id} imageUrl={item.imageUrl} name={item.name} /> : null;
                       })}
                     </div>
-                  </div>
-                </DroppableContainer>
-              ))}
-            </div>
-          </section>
+                  </DroppableContainer>
+                ))}
+              </div>
+            </section>
 
-          {/* Template Creation Section (Only show if logged in) */}
+            {/* Image Bank Section (Takes less space on medium screens and up) */}
+            <section id="image-bank" className="md:w-1/3 lg:w-1/4 flex-shrink-0 p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg min-h-[150px]"> {/* Updated section style */}
+              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Item Bank</h2> {/* Heading color */}
+              <DroppableContainer id={BANK_ID} className="flex flex-wrap gap-2 border border-dashed border-[var(--border-color)] p-2 rounded-lg min-h-[80px] bg-[var(--element-bg)] transition-all duration-150 h-full"> {/* Use element-bg, rounded-lg */}
+                {/* Render items currently in the bank */}
+                {(containers[BANK_ID] ?? []).map(itemId => {
+                  const item = items.find(i => i.id === itemId);
+                  return item ? <DraggableItem key={item.id} id={item.id} imageUrl={item.imageUrl} name={item.name} /> : null;
+                })}
+              </DroppableContainer>
+            </section>
+
+          </div> {/* End of Tier List / Image Bank Container */}
+
+
+          {/* Template Creation Section (Only if logged in) */}
           {session && (
-            <section className="p-4 bg-white dark:bg-gray-800 rounded shadow">
-              <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Create New Template</h2>
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-grow">
-                  <label htmlFor="templateName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template Name</label>
-                  <input
-                    type="text"
-                    id="templateName"
-                    value={newTemplateName}
-                    onChange={(e) => setNewTemplateName(e.target.value)}
-                    placeholder="Enter template name"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-200"
-                  />
-                </div>
-                <div className="flex-grow">
-                   <label htmlFor="templateImages" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Images</label>
-                   <input
-                     type="file"
-                     id="templateImages"
-                     multiple
-                     onChange={(e) => setFilesToUpload(e.target.files)}
-                     className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 dark:file:bg-indigo-900 file:text-indigo-700 dark:file:text-indigo-300 hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800"
-                   />
-                </div>
-                 <div className="flex items-center">
+            <section className="p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
+              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Create New Template</h2> {/* Heading color */}
+              <div className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  placeholder="New Template Name"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  className="p-2 border border-[var(--border-color)] rounded-lg bg-[var(--element-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent)] focus:border-[var(--primary-accent)] focus:ring-offset-2 focus:ring-offset-[var(--background)] transition-colors" /* Use element-bg, rounded-lg */
+                />
+                <input
+                  type="file"
+                  multiple
+                  onChange={(e) => setFilesToUpload(e.target.files)}
+                  className="p-1 border border-[var(--border-color)] rounded-lg bg-[var(--element-bg)] text-sm file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[var(--primary-accent)] file:text-white hover:file:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent)] focus:border-[var(--primary-accent)] focus:ring-offset-2 focus:ring-offset-[var(--background)] transition-colors" /* Use element-bg, rounded-lg */
+                />
+                 <div className="flex items-center gap-2">
                     <input
-                       type="checkbox"
-                       id="makeTemplatePublic"
-                       checked={makeTemplatePublic}
-                       onChange={(e) => setMakeTemplatePublic(e.target.checked)}
-                       className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        type="checkbox"
+                        id="makeTemplatePublic"
+                        checked={makeTemplatePublic}
+                        onChange={(e) => setMakeTemplatePublic(e.target.checked)}
+                        className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--element-bg)] text-[var(--primary-accent)] focus:ring-[var(--primary-accent)] focus:ring-offset-0" /* Use element-bg */
                     />
-                    <label htmlFor="makeTemplatePublic" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                       Make Public
+                    <label htmlFor="makeTemplatePublic" className="text-sm text-[var(--foreground)] opacity-90">
+                        Make this template public?
                     </label>
-                 </div>
+                </div>
                 <button
                   onClick={handleCreateTemplate}
                   disabled={isCreatingTemplate}
-                  className="px-4 py-2 bg-green-600 text-white rounded shadow hover:bg-green-700 disabled:opacity-50 flex items-center justify-center"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 focus:ring-offset-[var(--background)]" /* Use rounded-lg */
                 >
                   {isCreatingTemplate ? <Spinner /> : 'Create Template'}
                 </button>
@@ -741,153 +788,144 @@ export default function Home() {
             </section>
           )}
 
-          {/* Template Selection */}
-          <section className="p-4 bg-white dark:bg-gray-800 rounded shadow">
-            <label htmlFor="templateSelect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Template</label>
+          {/* Template Selection Section */}
+          <section className="p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
+            <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Select Template</h2> {/* Heading color */}
             <select
-              id="templateSelect"
               value={selectedTemplate?.id || ''}
+              className="p-2 border border-[var(--border-color)] rounded-lg w-full bg-[var(--element-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent)] focus:border-[var(--primary-accent)] focus:ring-offset-2 focus:ring-offset-[var(--background)] transition-colors appearance-none" /* Use element-bg, rounded-lg */
               onChange={(e) => {
-                const template = templates.find(t => t.id === e.target.value);
-                setSelectedTemplate(template || null);
+                const templateId = e.target.value;
+                const template = templates.find(t => t.id === templateId) || null;
+                setSelectedTemplate(template);
                 setSelectedSavedListId(''); // Reset saved list selection when template changes
               }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-200"
             >
               <option value="">-- Select a Template --</option>
               {templates.map(template => (
                 <option key={template.id} value={template.id}>
-                  {template.name} (ID: {template.id})
+                  {template.name}
                 </option>
               ))}
             </select>
           </section>
 
-          {/* Image Bank */}
-          <section id="image-bank" className="p-4 bg-white dark:bg-gray-800 rounded shadow min-h-[150px]">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Image Bank</h2>
-            <DroppableContainer id={BANK_ID} className="flex flex-wrap gap-2 border border-dashed border-gray-300 dark:border-gray-600 p-2 rounded min-h-[80px]">
-              {/* Render items in the bank */}
-              {(containers[BANK_ID] ?? []).map(itemId => {
-                const item = items.find(i => i.id === itemId);
-                return item ? <DraggableItem key={item.id} id={item.id} imageUrl={item.imageUrl} name={item.name} /> : null;
-              })}
-            </DroppableContainer>
-          </section>
+          {/* Image Bank Section - Now inside the flex container above */}
 
-          {/* Save/Load Section (Only show if logged in and template selected) */}
-        {session && selectedTemplate && (
-          <section className="p-4 bg-white dark:bg-gray-800 rounded shadow">
-             <h2 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Save / Load List for "{selectedTemplate.name}"</h2>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
+          {/* Save/Load List Section (Only if logged in and template selected) */}
+          {session && selectedTemplate && (
+            <section className="p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
+              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Save / Load List for "{selectedTemplate.name}"</h2> {/* Heading color */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Save Section */}
-                <div className="flex flex-col gap-2">
-                   <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">Save Current List</h3>
-                   <input
-                      type="text"
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      placeholder="Optional: Name your list"
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-200"
-                   />
-                   <div className="flex items-center">
-                      <input
-                         type="checkbox"
-                         id="makeListPublic"
-                         checked={makeListPublic}
-                         onChange={(e) => setMakeListPublic(e.target.checked)}
-                         className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                      />
-                      <label htmlFor="makeListPublic" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                         Make Public
-                      </label>
-                   </div>
-                   <button
-                      onClick={handleSaveList}
-                      disabled={isSavingList}
-                      className="px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
-                   >
-                      {isSavingList ? <Spinner /> : 'Save List'}
-                   </button>
+                <div className="flex flex-col gap-3">
+                  <h3 className="font-medium">Save Current List</h3>
+                  <input
+                    type="text"
+                    placeholder="Optional: List Name"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    className="p-2 border border-[var(--border-color)] rounded-lg bg-[var(--element-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent)] focus:border-[var(--primary-accent)] focus:ring-offset-2 focus:ring-offset-[var(--background)] transition-colors" /* Use element-bg, rounded-lg */
+                  />
+                   <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="makeListPublic"
+                            checked={makeListPublic}
+                            onChange={(e) => setMakeListPublic(e.target.checked)}
+                            className="h-4 w-4 rounded border-[var(--border-color)] bg-[var(--element-bg)] text-[var(--primary-accent)] focus:ring-[var(--primary-accent)] focus:ring-offset-0" /* Use element-bg */
+                        />
+                        <label htmlFor="makeListPublic" className="text-sm text-[var(--foreground)] opacity-90">
+                            Make this saved list public?
+                        </label>
+                    </div>
+                  <button
+                    onClick={handleSaveList}
+                    disabled={isSavingList}
+                    className="px-4 py-2 bg-[var(--primary-accent)] text-white rounded-lg hover:opacity-80 disabled:opacity-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-accent)] focus:ring-offset-[var(--background)]" /* Use rounded-lg */
+                  >
+                    {isSavingList ? <Spinner /> : 'Save List'}
+                  </button>
                 </div>
 
                 {/* Load Section */}
-                <div className="flex flex-col gap-2">
-                   <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">Load Saved List</h3>
-                   {savedLists.length > 0 ? (
+                <div className="flex flex-col gap-3">
+                  <h3 className="font-medium">Load Saved List</h3>
+                  {savedLists.length > 0 ? (
                       <>
                          <select
                             value={selectedSavedListId}
                             onChange={(e) => setSelectedSavedListId(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-200"
-                         >
+                            className="p-2 border border-[var(--border-color)] rounded-lg w-full bg-[var(--element-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-accent)] focus:border-[var(--primary-accent)] focus:ring-offset-2 focus:ring-offset-[var(--background)] transition-colors appearance-none" /* Use element-bg, rounded-lg */
+                            >
                             <option value="">-- Select a saved list --</option>
                             {savedLists.map(list => (
-                               <option key={list.id} value={list.id}>
-                                  {list.name || `Saved at ${new Date(list.updated_at).toLocaleString()}`} {list.is_public ? '(Public)' : '(Private)'}
-                               </option>
+                                <option key={list.id} value={list.id}>
+                                {list.name || `Saved at ${new Date(list.updated_at).toLocaleString()}`} {list.is_public ? '(Public)' : ''}
+                                </option>
                             ))}
-                         </select>
-                         <div className="flex gap-2">
-                            <button
-                               onClick={handleLoadList}
-                               disabled={!selectedSavedListId || isLoadingList}
-                               className="flex-grow px-4 py-2 bg-purple-600 text-white rounded shadow hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center"
-                            >
-                               {isLoadingList ? <Spinner /> : 'Load Selected'}
-                            </button>
-                            <button
-                               onClick={handleDeleteList}
-                               disabled={!selectedSavedListId || isLoadingList} // Also disable if loading
-                               className="px-4 py-2 bg-red-600 text-white rounded shadow hover:bg-red-700 disabled:opacity-50"
-                               title="Delete Selected List"
-                            >
-                               🗑️
-                            </button>
-                             <button
-                                onClick={() => {
-                                   const selectedList = savedLists.find(l => l.id === selectedSavedListId);
-                                   if (selectedList) {
-                                      handleToggleListPublic(selectedList.id, selectedList.is_public ?? false);
-                                   }
-                                }}
-                                disabled={!selectedSavedListId || isLoadingList}
-                                className="px-4 py-2 bg-gray-500 text-white rounded shadow hover:bg-gray-600 disabled:opacity-50"
-                                title={savedLists.find(l => l.id === selectedSavedListId)?.is_public ? "Make Private" : "Make Public"}
-                             >
-                                {savedLists.find(l => l.id === selectedSavedListId)?.is_public ? '🔒' : '🌍'}
-                             </button>
-                         </div>
+                            </select>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleLoadList}
+                                    disabled={!selectedSavedListId || isLoadingList}
+                                    className="flex-1 px-4 py-2 bg-[var(--secondary-accent)] text-white rounded-lg hover:opacity-80 disabled:opacity-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--secondary-accent)] focus:ring-offset-[var(--background)]" /* Use rounded-lg */
+                                >
+                                    {isLoadingList ? <Spinner /> : 'Load Selected List'}
+                                </button>
+                                <button
+                                    onClick={handleDeleteList}
+                                    disabled={!selectedSavedListId || isLoadingList}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-[var(--background)]" /* Use rounded-lg */
+                                    title="Delete Selected List"
+                                >
+                                    🗑️ {/* Trash icon */}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const list = savedLists.find(l => l.id === selectedSavedListId);
+                                        if (list) {
+                                            handleToggleListPublic(list.id, !!list.is_public);
+                                        }
+                                    }}
+                                    disabled={!selectedSavedListId || isLoadingList}
+                                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-offset-[var(--background)]" /* Use rounded-lg */
+                                    title={savedLists.find(l => l.id === selectedSavedListId)?.is_public ? "Make Private" : "Make Public"}
+                                >
+                                    {savedLists.find(l => l.id === selectedSavedListId)?.is_public ? '🔒' : '🌍'} {/* Lock/Globe icon */}
+                                </button>
+                            </div>
                       </>
-                   ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No saved lists found for this template.</p>
-                   )}
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400">No saved lists for this template.</p>
+                  )}
                 </div>
-             </div>
-          </section>
-        )}
+              </div>
+            </section>
+          )}
         </main>
 
         {/* Footer */}
-        <footer className="mt-6 text-sm text-gray-500 dark:text-gray-400 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <p>Built with Next.js, Tailwind, dnd-kit, Prisma, and Supabase.</p>
-          {session && selectedTemplate && selectedSavedListId && (
-             <button
-                onClick={() => {
-                   const url = `${window.location.origin}?template_id=${selectedTemplate.id}&load_list_id=${selectedSavedListId}`;
-                   navigator.clipboard.writeText(url).then(() => {
-                      toast.success('Shareable link copied to clipboard!');
-                   }, () => {
-                      toast.error('Failed to copy link.');
-                   });
-                }}
-                className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs"
-                title="Copy Link to Share This List"
-             >
-                Copy Share Link
-             </button>
-          )}
+        <footer className="mt-auto pt-4 text-sm text-[var(--foreground)] opacity-70 flex flex-col sm:flex-row justify-between items-center gap-2 border-t border-[var(--border-color)]"> {/* Added mt-auto, border-t */}
+          <p>&copy; {new Date().getFullYear()} YesTier. All rights reserved.</p>
+           {selectedTemplate && (
+                <button
+                    onClick={() => {
+                        const url = `${window.location.origin}?template_id=${selectedTemplate.id}${selectedSavedListId ? `&load_list_id=${selectedSavedListId}` : ''}`;
+                        navigator.clipboard.writeText(url).then(() => {
+                            toast.success('Link copied to clipboard!');
+                        }, (err) => {
+                            toast.error('Failed to copy link.');
+                            console.error('Could not copy text: ', err);
+                        });
+                    }}
+                    className="px-3 py-1 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg hover:bg-white/20 dark:hover:bg-black/40 text-xs transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-accent)] focus:ring-offset-[var(--background)]" /* Use element-bg, rounded-lg */
+                    title="Copy link to current template/list"
+                >
+                    🔗 Copy Link
+                </button>
+            )}
         </footer>
       </div>
 
@@ -896,7 +934,6 @@ export default function Home() {
         {activeId ? (
           (() => {
             const item = items.find(i => i.id === activeId);
-            // Render imageUrl and name in DragOverlay
             return item ? <DraggableItem id={item.id} imageUrl={item.imageUrl} name={item.name} /> : null;
           })()
         ) : null}

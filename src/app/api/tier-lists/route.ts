@@ -80,7 +80,7 @@ export async function POST(request: Request) {
        return NextResponse.json({ error: 'Invalid request body: template_id and data are required.' }, { status: 400 })
     }
     // TODO: Validate the structure of listData.data (should match container state)
-  } catch (e) {
+  } catch (_e) {
     return NextResponse.json({ error: 'Invalid request body: Failed to parse JSON.' }, { status: 400 })
   }
 

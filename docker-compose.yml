@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15 # Using PostgreSQL 15
+    container_name: yestier-postgres-dev
+    restart: always
+    ports:
+      - "5432:5432" # Map container port 5432 to host port 5432
+    environment:
+      POSTGRES_USER: postgres # Changed
+      POSTGRES_PASSWORD: postgres # Changed
+      POSTGRES_DB: postgres # Changed
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persist data
+
+volumes:
+  postgres_data:
+    driver: local
