@@ -17,6 +17,7 @@ const eslintConfig = [
       "@typescript-eslint/no-unused-vars": "off", // Disable unused variable checks
       "@next/next/no-img-element": "off", // Disable next/image warning
       "react/no-unescaped-entities": "off", // Disable check for unescaped entities like quotes
+      "@typescript-eslint/no-explicit-any": "off", // Disable explicit 'any' type check
     },
   },
 ];

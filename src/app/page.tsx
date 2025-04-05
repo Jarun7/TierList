@@ -94,7 +94,6 @@ function DraggableItem({ id, imageUrl, name }: { id: string; imageUrl: string; n
       // Added object-cover to maintain aspect ratio
       className="w-16 h-16 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg flex items-center justify-center cursor-grab touch-none overflow-hidden shadow-md hover:shadow-lg transition-shadow" /* Use element-bg, rounded-lg */
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
     </div>
   );
