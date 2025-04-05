@@ -3,11 +3,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params;
+export async function GET(request: Request, { params }: { params: { id: string } }) {
+  const { id } = params;
 
   if (!id) {
     return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
