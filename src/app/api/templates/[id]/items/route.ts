@@ -5,9 +5,11 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  // Indicate params might be a Promise based on potential Next.js behavior
+  { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const templateId = params.id;
+  const resolvedParams = await params; // Await the params object
+  const templateId = resolvedParams.id; // Access id from the resolved object
 
   if (!templateId) {
     return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
