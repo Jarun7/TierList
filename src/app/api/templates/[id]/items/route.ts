@@ -4,9 +4,11 @@ import { PrismaClient } from '@prisma/client' // Import PrismaClient
 const prisma = new PrismaClient() // Instantiate PrismaClient
 
 // Fetch items for a specific template using Prisma
+type RouteParams = { params: { id: string } }; // Define type for params
+
 export async function GET(
   request: Request, // Keep request parameter even if unused for potential future use
-  { params }: { params: { id: string } } // 'id' here refers to the templateId
+  { params }: RouteParams // Use the defined type
 ) {
   const templateId = params.id;
 
