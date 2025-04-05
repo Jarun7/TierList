@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client' // Import PrismaClient
  
-const prisma = new PrismaClient() // Instantiate PrismaClient
 
 // Define the expected structure for items in the request body
 interface ItemPayload {
@@ -11,7 +10,9 @@ interface ItemPayload {
 }
 
 export async function POST(request: Request) {
+  let prisma: PrismaClient | undefined; // Declare prisma outside try
   try {
+    prisma = new PrismaClient(); // Instantiate PrismaClient here
     // 1. Parse request body (expecting an array of ItemPayload objects)
     const itemsPayload: ItemPayload[] = await request.json();
 
@@ -59,7 +60,9 @@ export async function POST(request: Request) {
     // Add more specific Prisma error handling if needed
     return NextResponse.json({ error: 'Failed to create items' }, { status: 500 });
   } finally {
-    // Disconnect Prisma Client
-    await prisma.$disconnect();
+    // Disconnect Prisma Client if it was successfully instantiated
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   }
 }
