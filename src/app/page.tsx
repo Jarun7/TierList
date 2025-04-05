@@ -659,7 +659,7 @@ export default function Home() {
         {/* Header */}
         <header className="mb-6 pb-4 border-b border-[var(--border-color)]">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-[var(--primary-accent)]">YesTier</h1> {/* Changed title style */}
+            {/* <h1 className="text-2xl font-bold text-[var(--primary-accent)]">YesTier</h1>  */}
             {/* Auth Button/Info */}
             {loadingSession ? (
               <Spinner />
@@ -696,7 +696,27 @@ export default function Home() {
 
             {/* Tier Rows Section (Takes more space) */}
             <section id="tier-rows" className="flex-grow p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
-              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Tiers</h2> {/* Heading color */}
+              {/* Wrapper for Tiers title and Copy Link button */}
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-[var(--secondary-accent)]">Tiers</h2> {/* Heading color */}
+                {selectedTemplate && (
+                  <button
+                      onClick={() => {
+                          const url = `${window.location.origin}?template_id=${selectedTemplate.id}${selectedSavedListId ? `&load_list_id=${selectedSavedListId}` : ''}`;
+                          navigator.clipboard.writeText(url).then(() => {
+                              toast.success('Link copied to clipboard!');
+                          }, (err) => {
+                              toast.error('Failed to copy link.');
+                              console.error('Could not copy text: ', err);
+                          });
+                      }}
+                      className="px-3 py-1 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg hover:bg-white/20 dark:hover:bg-black/40 text-xs transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-accent)] focus:ring-offset-[var(--background)]" /* Use element-bg, rounded-lg */
+                      title="Copy link to current template/list"
+                  >
+                      🔗 Copy Link
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
                 {tiers.map((tier) => (
                   <DroppableContainer key={tier.id} id={tier.id} className="flex items-stretch border border-[var(--border-color)] rounded-lg min-h-[80px] transition-all duration-150 overflow-hidden"> {/* Use rounded-lg */}
@@ -717,9 +737,9 @@ export default function Home() {
             </section>
 
             {/* Image Bank Section (Takes less space on medium screens and up) */}
-            <section id="image-bank" className="md:w-1/3 lg:w-1/4 flex-shrink-0 p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg min-h-[150px]"> {/* Updated section style */}
+            <section id="image-bank" className="md:w-1/3 lg:w-1/4 flex flex-col flex-shrink-0 p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg min-h-[150px]"> {/* Added flex flex-col */}
               <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Item Bank</h2> {/* Heading color */}
-              <DroppableContainer id={BANK_ID} className="flex flex-wrap gap-2 border border-dashed border-[var(--border-color)] p-2 rounded-lg min-h-[80px] bg-[var(--element-bg)] transition-all duration-150 h-full"> {/* Use element-bg, rounded-lg */}
+              <DroppableContainer id={BANK_ID} className="flex-grow flex flex-wrap gap-2 border border-dashed border-[var(--border-color)] p-2 rounded-lg min-h-[80px] bg-[var(--element-bg)] transition-all duration-150"> {/* Added flex-grow */}
                 {/* Render items currently in the bank */}
                 {(containers[BANK_ID] ?? []).map(itemId => {
                   const item = items.find(i => i.id === itemId);
@@ -893,23 +913,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="mt-auto pt-4 text-sm text-[var(--foreground)] opacity-70 flex flex-col sm:flex-row justify-between items-center gap-2 border-t border-[var(--border-color)]"> {/* Added mt-auto, border-t */}
           <p>&copy; {new Date().getFullYear()} YesTier. All rights reserved.</p>
-           {selectedTemplate && (
-                <button
-                    onClick={() => {
-                        const url = `${window.location.origin}?template_id=${selectedTemplate.id}${selectedSavedListId ? `&load_list_id=${selectedSavedListId}` : ''}`;
-                        navigator.clipboard.writeText(url).then(() => {
-                            toast.success('Link copied to clipboard!');
-                        }, (err) => {
-                            toast.error('Failed to copy link.');
-                            console.error('Could not copy text: ', err);
-                        });
-                    }}
-                    className="px-3 py-1 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg hover:bg-white/20 dark:hover:bg-black/40 text-xs transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--primary-accent)] focus:ring-offset-[var(--background)]" /* Use element-bg, rounded-lg */
-                    title="Copy link to current template/list"
-                >
-                    🔗 Copy Link
-                </button>
-            )}
+         
         </footer>
       </div>
 
