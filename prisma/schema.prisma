@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Template {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  is_public       Boolean          @default(false) // Added field for public/private status
+  items           TemplateItem[]   // Relation to TemplateItem
+  tierDefinitions TierDefinition[] // Relation to TierDefinition
+  // tierLists    TierList[]     // Relation to TierList (Add later)
+  // user         User?            @relation(fields: [userId], references: [id]) // Relation to User (Add later)
+  // userId       String?          // Foreign key for User (Add later)
+
+  @@index([createdAt])
+}
+
+model TemplateItem {
+  id         String   @id @default(cuid())
+  name       String
+  imageUrl   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String   // Foreign key for Template
+
+  @@index([templateId])
+}
+
+model TierDefinition {
+  id         String   @id @default(cuid())
+  label      String
+  color      String?
+  order      Int      // Defines the order of tiers (e.g., 0 for S, 1 for A)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId String   // Foreign key for Template
+
+  @@index([templateId])
+  @@unique([templateId, order]) // Ensure unique order within a template
+  @@unique([templateId, label]) // Ensure unique label within a template
+}
+
+// --- Models to be added later ---
+// model TierList { ... }
+// model TierListItemPlacement { ... } // To store item positions within a TierList
+// model User { ... } // For NextAuth
+// model Account { ... } // For NextAuth
+// model Session { ... } // For NextAuth
+// model VerificationToken { ... } // For NextAuth
