@@ -1,60 +1,26 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = createClient() // Call with 0 arguments
-  const { id } = params
-  const { data, error } = await supabase
-    .from('templates')
-    .select('*')
-    .eq('id', id as string)
-    .single() // Expecting a single record
+const prisma = new PrismaClient();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const id = url.pathname.split('/').pop();
+
+  if (!id) {
+    return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
   }
 
-  return NextResponse.json(data)
-}
+  try {
+    const items = await prisma.templateItem.findMany({
+      where: { templateId: id },
+    });
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = createClient() // Call with 0 arguments
-  const { id } = params
-  const { error } = await supabase
-    .from('templates')
-    .delete()
-    .eq('id', id as string)
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(items);
+  } catch (error) {
+    console.error(`Failed to fetch items for template ${id}:`, error);
+    return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
-
-  // Return a success response, perhaps with no content
-  return new Response(null, { status: 204 })
-}
-
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = createClient() // Call with 0 arguments
-  const { id } = params
-  const body = await request.json()
-  const { data, error } = await supabase
-    .from('templates')
-    .update(body)
-    .eq('id', id as string)
-    .select() // Return the updated record
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json(data)
 }
