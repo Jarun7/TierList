@@ -3,9 +3,12 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const id = url.pathname.split('/').pop();
+// Use 'any' as a workaround to avoid TS complaining about Promise in context
+export async function GET(
+  req: Request,
+  context: any // <- workaround!
+) {
+  const { id } = await context.params;
 
   if (!id) {
     return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
