@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react'; // Import Suspense
 import {
   DndContext,
   DragEndEvent,
@@ -18,7 +18,8 @@ import type { Session } from '@supabase/supabase-js';
 import AuthUIComponent from '@/components/AuthUI'; // Import the Auth UI component
 import Link from 'next/link'; // Import Link component
 import Image from 'next/image'; // Import Image component
-import { useSearchParams } from 'next/navigation'; // Import hook for query params
+// import { useSearchParams } from 'next/navigation'; // Removed - Handled in UrlParamHandler
+import UrlParamHandler from '@/components/UrlParamHandler'; // Import the new component
 import Spinner from '@/components/Spinner'; // Import Spinner component
 import toast from 'react-hot-toast'; // Import toast
 
@@ -148,7 +149,7 @@ export default function Home() {
   const [isLoadingList, setIsLoadingList] = useState(false); // Loading state for loading
   const [makeListPublic, setMakeListPublic] = useState(false); // State for public toggle on save
   const supabase = createClient(); // Create client instance for session check/logout
-  const searchParams = useSearchParams(); // Hook to access query parameters
+  // const searchParams = useSearchParams(); // Removed - Handled in UrlParamHandler
 
   // Fetch templates on component mount
   useEffect(() => {
@@ -170,34 +171,7 @@ export default function Home() {
     fetchTemplates();
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  // Effect to handle loading template/list from URL params after initial templates are fetched
-  useEffect(() => {
-    if (templates.length > 0) { // Only run if templates have been loaded
-      const templateIdFromUrl = searchParams.get('template_id');
-      const listIdFromUrl = searchParams.get('load_list_id');
-
-      if (templateIdFromUrl) {
-        const templateToSelect = templates.find(t => t.id === templateIdFromUrl);
-        if (templateToSelect && selectedTemplate?.id !== templateIdFromUrl) {
-          setSelectedTemplate(templateToSelect);
-          // If a list ID is also present, set it to be loaded by the other useEffect
-          if (listIdFromUrl) {
-             // Ensure the savedLists state is populated first by the other effect
-             // This might require adjusting dependencies or state management
-             // For simplicity now, we set the ID and hope the list loads correctly
-             // A better approach might involve a dedicated loading state triggered by params.
-             setSelectedSavedListId(listIdFromUrl);
-             // console.log(`Attempting to load template ${templateIdFromUrl} and list ${listIdFromUrl} from URL`);
-          }
-        } else if (!templateToSelect) {
-           console.warn(`Template ID ${templateIdFromUrl} from URL not found.`);
-           // Optionally show an error to the user
-        }
-      }
-    }
-    // Depend on templates list and searchParams. Add selectedTemplate to avoid loop if already selected.
-  }, [templates, searchParams, selectedTemplate]);
-
+  // Removed useEffect for URL params - Handled in UrlParamHandler component
   // Effect to check and monitor session state
   useEffect(() => {
     const checkSession = async () => {
@@ -673,6 +647,15 @@ export default function Home() {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col min-h-screen p-4 md:p-6 bg-[var(--background)] text-[var(--foreground)]">
+        {/* Suspense boundary for URL param handling */}
+        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50"><Spinner /></div>}>
+          <UrlParamHandler
+            templates={templates}
+            selectedTemplate={selectedTemplate}
+            setSelectedTemplate={setSelectedTemplate}
+            setSelectedSavedListId={setSelectedSavedListId}
+          />
+        </Suspense>
         {/* Header */}
         <header className="mb-6 pb-4 border-b border-[var(--border-color)]">
           <div className="flex justify-between items-center">
