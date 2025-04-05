@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers' // Import cookies from next/headers
 import { Database } from '@/types/database.types'
 
@@ -22,20 +22,25 @@ export function createClient() {
     supabaseAnonKey,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        async get(name: string) {
+          // Await cookieStore if TS thinks it's a promise
+          // Note: This might not be necessary if cookies() is truly sync here.
+          // Keeping original optional chaining as get might return undefined.
+          return (await cookieStore).get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
+        async set(name: string, value: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value, ...options })
-          } catch (error) {
+             // Await cookieStore if TS thinks it's a promise
+            (await cookieStore).set({ name, value, ...options })
+          } catch {
             // Ignore errors in read-only contexts like Server Components
           }
         },
-        remove(name: string, options: CookieOptions) {
+        async remove(name: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value: '', ...options })
-          } catch (error) {
+             // Await cookieStore if TS thinks it's a promise
+            (await cookieStore).set({ name, value: '', ...options })
+          } catch {
              // Ignore errors in read-only contexts
           }
         },

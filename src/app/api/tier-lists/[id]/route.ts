@@ -84,7 +84,7 @@ export async function PUT(
         return NextResponse.json({ error: 'Invalid request body: Provide name and/or data to update.' }, { status: 400 })
     }
      // TODO: Validate the structure of updateData.data if provided
-  } catch (_e) {
+  } catch {
     return NextResponse.json({ error: 'Invalid request body: Failed to parse JSON.' }, { status: 400 })
   }
 

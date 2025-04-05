@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server'; // Use server client for RSC
-import { cookies } from 'next/headers'; // Needed for server client
 
 // Define the type based on the API response for listing
 type PublicTierList = {

@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'; // Import client-side clie
 import type { Session } from '@supabase/supabase-js';
 import AuthUIComponent from '@/components/AuthUI'; // Import the Auth UI component
 import Link from 'next/link'; // Import Link component
+import Image from 'next/image'; // Import Image component
 import { useSearchParams } from 'next/navigation'; // Import hook for query params
 import Spinner from '@/components/Spinner'; // Import Spinner component
 import toast from 'react-hot-toast'; // Import toast
@@ -93,6 +94,7 @@ function DraggableItem({ id, imageUrl, name }: { id: string; imageUrl: string; n
       // Added object-cover to maintain aspect ratio
       className="w-16 h-16 bg-[var(--element-bg)] border border-[var(--border-color)] rounded-lg flex items-center justify-center cursor-grab touch-none overflow-hidden shadow-md hover:shadow-lg transition-shadow" /* Use element-bg, rounded-lg */
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
     </div>
   );
@@ -816,7 +818,7 @@ export default function Home() {
           {/* Save/Load List Section (Only if logged in and template selected) */}
           {session && selectedTemplate && (
             <section className="p-6 bg-white/5 dark:bg-black/20 border border-[var(--border-color)] rounded-lg shadow-lg"> {/* Updated section style */}
-              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Save / Load List for "{selectedTemplate.name}"</h2> {/* Heading color */}
+              <h2 className="text-lg font-semibold mb-4 text-[var(--secondary-accent)]">Save / Load List for {selectedTemplate.name}</h2> {/* Heading color */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Save Section */}
                 <div className="flex flex-col gap-3">
