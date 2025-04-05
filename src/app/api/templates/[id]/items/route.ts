@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server' // Import NextRequest
 import { PrismaClient } from '@prisma/client' // Import PrismaClient
 
 const prisma = new PrismaClient() // Instantiate PrismaClient
 
 // Fetch items for a specific template using Prisma
-type RouteParams = { params: { id: string } }; // Define type for params
+// Removed type alias
 
 export async function GET(
-  request: Request, // Keep request parameter even if unused for potential future use
-  { params }: RouteParams // Use the defined type
+  request: NextRequest, // Use NextRequest type
+  { params }: { params: { id: string } } // Use standard inline type
 ) {
   const templateId = params.id;
 
